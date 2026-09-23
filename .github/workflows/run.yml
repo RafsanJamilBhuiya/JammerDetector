@@ -5,8 +5,8 @@ on:
     - cron: "*/10 * * * *"
   workflow_dispatch:
     inputs:
-      mock_signal_drop:
-        description: "Simulate a -140 dBm blackout"
+      simulate_blackout:
+        description: "Simulate a -140 dBm blackout and send a CRITICAL alert"
         required: false
         default: false
         type: boolean
@@ -31,16 +31,19 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
+
       - name: Install dependencies
         shell: bash
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
+
       - name: Validate required secrets
         shell: bash
         run: |
@@ -49,11 +52,12 @@ jobs:
           test -n "${THINGSPEAK_WRITE_API_KEY}" || { echo "::error::THINGSPEAK_WRITE_API_KEY secret is missing"; exit 1; }
           test -n "${TELEGRAM_BOT_TOKEN}" || { echo "::error::TELEGRAM_BOT_TOKEN secret is missing"; exit 1; }
           test -n "${TELEGRAM_CHAT_ID}" || { echo "::error::TELEGRAM_CHAT_ID secret is missing"; exit 1; }
+
       - name: Run JammerDetector
         shell: bash
         env:
           SIGNAL_SOURCE: mock
-          MOCK_SIGNAL_DROP: ${{ inputs.mock_signal_drop || false }}
+          MOCK_SIGNAL_DROP: ${{ inputs.simulate_blackout || false }}
         run: |
           set -euo pipefail
           python main.py
