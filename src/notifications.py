@@ -40,28 +40,16 @@ def build_status_message(metrics: SignalMetrics, thingspeak_entry_id: str) -> st
     )
 
     return (
-        f"{emoji} *JAMMERDETECTOR — {priority}*
-
-"
-        f"*Priority:* {priority}
-"
-        f"*RSSI:* {metrics.rssi_dbm:.1f} dBm
-"
-        f"*Signal degradation:* {metrics.degradation_percent:.1f}%
-"
-        f"*Cellular status:* {metrics.cellular_status}
-"
-        f"*Possible jammer:* {metrics.jammer_indicator}
-"
-        f"*Telemetry source:* {metrics.source}
-"
-        f"*ThingSpeak entry:* {thingspeak_entry_id}
-"
-        f"*Host:* {metrics.hostname}
-"
-        f"*UTC:* {metrics.measured_at}
-
-"
+        f"{emoji} *JAMMERDETECTOR — {priority}*\n\n"
+        f"*Priority:* {priority}\n"
+        f"*RSSI:* {metrics.rssi_dbm:.1f} dBm\n"
+        f"*Signal degradation:* {metrics.degradation_percent:.1f}%\n"
+        f"*Cellular status:* {metrics.cellular_status}\n"
+        f"*Possible jammer:* {metrics.jammer_indicator}\n"
+        f"*Telemetry source:* {metrics.source}\n"
+        f"*ThingSpeak entry:* {thingspeak_entry_id}\n"
+        f"*Host:* {metrics.hostname}\n"
+        f"*UTC:* {metrics.measured_at}\n\n"
         "_Note: RSSI loss alone does not prove intentional jamming._"
     )
 
