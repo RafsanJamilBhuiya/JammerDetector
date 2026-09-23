@@ -17,7 +17,6 @@ jobs:
   monitor:
     name: Network Health Monitor
     runs-on: ubuntu-latest
-
     timeout-minutes: 5
 
     env:
@@ -37,7 +36,9 @@ jobs:
           cache: "pip"
 
       - name: Install dependencies
+        shell: bash
         run: |
+          set -euo pipefail
           python -m pip install --upgrade pip
           python -m pip install "requests>=2.31,<3"
 
@@ -67,9 +68,12 @@ jobs:
           }
 
       - name: Run JammerDetector
+        shell: bash
         env:
           # GitHub-hosted runners cannot directly access a physical cellular
           # modem. The current backend therefore uses safe mock telemetry.
           SIGNAL_SOURCE: mock
           MOCK_SIGNAL_DROP: "false"
-        run: python main.py
+        run: |
+          set -euo pipefail
+          python main.py
