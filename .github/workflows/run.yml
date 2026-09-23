@@ -5,6 +5,12 @@ on:
     # Run every 10 minutes.
     - cron: "*/10 * * * *"
   workflow_dispatch:
+    inputs:
+      mock_signal_drop:
+        description: "Simulate a -140 dBm blackout"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -72,7 +78,7 @@ jobs:
           # GitHub-hosted runners cannot directly access a physical cellular
           # modem. The current backend therefore uses safe mock telemetry.
           SIGNAL_SOURCE: mock
-          MOCK_SIGNAL_DROP: "false"
+          MOCK_SIGNAL_DROP: ${{ inputs.mock_signal_drop || false }}
         run: |
           set -euo pipefail
           python main.py
