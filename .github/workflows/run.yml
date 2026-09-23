@@ -2,7 +2,6 @@ name: JammerDetector Network Monitor
 
 on:
   schedule:
-    # Run every 10 minutes.
     - cron: "*/10 * * * *"
   workflow_dispatch:
     inputs:
@@ -24,59 +23,35 @@ jobs:
     name: Network Health Monitor
     runs-on: ubuntu-latest
     timeout-minutes: 5
-
     env:
       THINGSPEAK_CHANNEL_ID: ${{ secrets.THINGSPEAK_CHANNEL_ID }}
       THINGSPEAK_WRITE_API_KEY: ${{ secrets.THINGSPEAK_WRITE_API_KEY }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-
       - name: Install dependencies
         shell: bash
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
-          python -m pip install "requests>=2.31,<3"
-
+          python -m pip install -r requirements.txt
       - name: Validate required secrets
         shell: bash
         run: |
           set -euo pipefail
-
-          test -n "${THINGSPEAK_CHANNEL_ID}" || {
-            echo "::error::THINGSPEAK_CHANNEL_ID secret is missing"
-            exit 1
-          }
-
-          test -n "${THINGSPEAK_WRITE_API_KEY}" || {
-            echo "::error::THINGSPEAK_WRITE_API_KEY secret is missing"
-            exit 1
-          }
-
-          test -n "${TELEGRAM_BOT_TOKEN}" || {
-            echo "::error::TELEGRAM_BOT_TOKEN secret is missing"
-            exit 1
-          }
-
-          test -n "${TELEGRAM_CHAT_ID}" || {
-            echo "::error::TELEGRAM_CHAT_ID secret is missing"
-            exit 1
-          }
-
+          test -n "${THINGSPEAK_CHANNEL_ID}" || { echo "::error::THINGSPEAK_CHANNEL_ID secret is missing"; exit 1; }
+          test -n "${THINGSPEAK_WRITE_API_KEY}" || { echo "::error::THINGSPEAK_WRITE_API_KEY secret is missing"; exit 1; }
+          test -n "${TELEGRAM_BOT_TOKEN}" || { echo "::error::TELEGRAM_BOT_TOKEN secret is missing"; exit 1; }
+          test -n "${TELEGRAM_CHAT_ID}" || { echo "::error::TELEGRAM_CHAT_ID secret is missing"; exit 1; }
       - name: Run JammerDetector
         shell: bash
         env:
-          # GitHub-hosted runners cannot directly access a physical cellular
-          # modem. The current backend therefore uses safe mock telemetry.
           SIGNAL_SOURCE: mock
           MOCK_SIGNAL_DROP: ${{ inputs.mock_signal_drop || false }}
         run: |
