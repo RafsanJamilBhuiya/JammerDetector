@@ -1,0 +1,91 @@
+name: JammerDetector Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "android_app/**"
+      - ".github/workflows/android-build.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jammerdetector-android-build
+  cancel-in-progress: true
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+
+    defaults:
+      run:
+        working-directory: android_app
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android build dependencies
+        working-directory: .
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            git \
+            zip \
+            unzip \
+            autoconf \
+            automake \
+            libtool \
+            pkg-config \
+            libffi-dev \
+            libssl-dev \
+            zlib1g-dev
+
+      - name: Install Buildozer
+        working-directory: .
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install buildozer cython
+
+      - name: Build debug APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          buildozer android debug
+
+      - name: Locate APK
+        working-directory: .
+        shell: bash
+        run: |
+          set -euo pipefail
+          find android_app/bin -type f -name "*.apk" -print
+          test -n "$(find android_app/bin -type f -name '*.apk' -print -quit)"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JammerDetector-Android-APK
+          path: android_app/bin/*.apk
+          if-no-files-found: error
+          retention-days: 14
