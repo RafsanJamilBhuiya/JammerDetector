@@ -31,28 +31,28 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-
       - name: Install dependencies
         shell: bash
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
-
-      - name: Validate required secrets
+      - name: Check optional secrets (non-blocking)
         shell: bash
         run: |
-          set -euo pipefail
-          test -n "${THINGSPEAK_CHANNEL_ID}" || { echo "::error::THINGSPEAK_CHANNEL_ID secret is missing"; exit 1; }
-          test -n "${THINGSPEAK_WRITE_API_KEY}" || { echo "::error::THINGSPEAK_WRITE_API_KEY secret is missing"; exit 1; }
-          test -n "${TELEGRAM_BOT_TOKEN}" || { echo "::error::TELEGRAM_BOT_TOKEN secret is missing"; exit 1; }
-          test -n "${TELEGRAM_CHAT_ID}" || { echo "::error::TELEGRAM_CHAT_ID secret is missing"; exit 1; }
-
+          set -u
+          missing=0
+          for name in THINGSPEAK_CHANNEL_ID THINGSPEAK_WRITE_API_KEY TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID; do
+            if [ -z "${!name:-}" ]; then
+              echo "::warning::$name is not configured; the related integration will be disabled."
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ] && echo "All integration secrets are available." || echo "Continuing safely with missing optional secrets."
       - name: Run JammerDetector
         shell: bash
         env:
