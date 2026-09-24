@@ -35,7 +35,6 @@ env:
   NDKAPI: "24"
   GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.workers.max=2"
   MAKEFLAGS: "-j2"
-  SEGMENT_DOWNLOAD_TIMEOUT_MINS: "5"
 
 jobs:
   build-android:
@@ -49,20 +48,20 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Set up Java
-        uses: actions/setup-java@v6
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      - name: Cache Buildozer, Android SDK/NDK and Gradle
+      - name: Cache Buildozer and Android build state
         uses: actions/cache@v4
         with:
           path: |
@@ -71,13 +70,11 @@ jobs:
             ~/.gradle/caches
             ~/.gradle/wrapper
             ~/.cache/pip
-            /usr/local/lib/android/sdk
           key: ${{ runner.os }}-buildozer-api35-py311-${{ hashFiles('android_app/buildozer.spec') }}
           restore-keys: |
             ${{ runner.os }}-buildozer-api35-py311-
             ${{ runner.os }}-buildozer-api35-
             ${{ runner.os }}-buildozer-
-          save-always: true
 
       - name: Install Android build dependencies
         working-directory: .
@@ -85,12 +82,9 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y \
-            build-essential git zip unzip autoconf automake libtool \
-            libffi-dev libssl-dev zlib1g-dev libltdl-dev \
-            libncurses5-dev libncursesw5-dev
+          sudo apt-get install -y build-essential git zip unzip autoconf automake libtool pkg-config libffi-dev libssl-dev zlib1g-dev libltdl-dev libncurses5-dev libncursesw5-dev
 
-      - name: Prepare runner Android SDK compatibility
+      - name: Prepare Android SDK compatibility
         working-directory: .
         shell: bash
         run: |
@@ -100,14 +94,9 @@ jobs:
           test -d "$ANDROIDSDK/platforms/android-35"
           test -d "$ANDROIDSDK/build-tools/35.0.0" || test -d "$ANDROIDSDK/build-tools/37.0.0"
           sudo mkdir -p "$ANDROIDSDK/tools/bin"
-          sudo tee "$ANDROIDSDK/tools/bin/sdkmanager" >/dev/null <<'EOF'
-#!/usr/bin/env bash
-exec /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "$@"
-EOF
+          printf '%s\n' '#!/usr/bin/env bash' 'exec /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "$@"' | sudo tee "$ANDROIDSDK/tools/bin/sdkmanager" >/dev/null
           sudo chmod +x "$ANDROIDSDK/tools/bin/sdkmanager"
           test -x "$ANDROIDSDK/tools/bin/sdkmanager"
-          echo "Using Android SDK: $ANDROIDSDK"
-          echo "Using Android NDK: $ANDROIDNDK"
 
       - name: Install Buildozer
         working-directory: .
@@ -117,7 +106,7 @@ EOF
           python -m pip install --upgrade pip setuptools wheel
           python -m pip install --upgrade buildozer cython
 
-      - name: Verify toolchain and cache paths
+      - name: Verify toolchain
         working-directory: .
         shell: bash
         run: |
@@ -125,12 +114,7 @@ EOF
           python --version
           java -version
           buildozer --version
-          python -m pip --version
           test -f android_app/buildozer.spec
-          printf 'ANDROID_HOME=%s\n' "$ANDROID_HOME"
-          printf 'ANDROIDSDK=%s\n' "$ANDROIDSDK"
-          printf 'ANDROIDNDK=%s\n' "$ANDROIDNDK"
-          printf 'ANDROIDAPI=%s ANDROIDMINAPI=%s NDKAPI=%s\n' "$ANDROIDAPI" "$ANDROIDMINAPI" "$NDKAPI"
           "$ANDROIDSDK/tools/bin/sdkmanager" --version
           "$ANDROIDNDK/toolchains/llvm/prebuilt/linux-x86_64/bin/clang" --version | head -n 1
 
@@ -139,9 +123,7 @@ EOF
         timeout-minutes: 165
         run: |
           set -euo pipefail
-          echo "Starting verbose Buildozer Android build..."
-          echo "SDK/NDK downloads are disabled; cached/preinstalled toolchain is reused."
-          echo "Build logs are intentionally unbuffered."
+          echo "Starting Buildozer with maximum verbosity (log_level=3)..."
           buildozer -v android debug 2>&1 | tee buildozer-build.log
 
       - name: Locate APK
@@ -149,7 +131,7 @@ EOF
         shell: bash
         run: |
           set -euo pipefail
-          find android_app/bin -type f -name "*.apk" -print
+          find android_app/bin -type f -name '*.apk' -print
           test -n "$(find android_app/bin -type f -name '*.apk' -print -quit)"
 
       - name: Upload APK artifact
