@@ -13,27 +13,29 @@ permissions:
   contents: read
 
 concurrency:
-  group: jammerdetector-android-build-v2
+  group: jammerdetector-android-build-v3
   cancel-in-progress: false
 
 env:
   PYTHONUNBUFFERED: "1"
-  PIP_DISABLE_PIP_VERSION_CHECK: "1"
-  PIP_NO_INPUT: "1"
+  PYTHONFORANDROID_PREREQUISITES_INSTALL_INTERACTIVE: "0"
   P4A_COLOR: "1"
   P4A_NO_INTERACTIVE: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PIP_NO_INPUT: "1"
   LC_ALL: C.UTF-8
   LANG: C.UTF-8
-  ANDROID_HOME: ${{ github.workspace }}/android_app/.buildozer/android/platform/android-sdk
-  ANDROID_SDK_ROOT: ${{ github.workspace }}/android_app/.buildozer/android/platform/android-sdk
-  ANDROIDSDK: ${{ github.workspace }}/android_app/.buildozer/android/platform/android-sdk
-  ANDROID_NDK_ROOT: ${{ github.workspace }}/android_app/.buildozer/android/platform/android-sdk/ndk
-  ANDROIDNDK: ${{ github.workspace }}/android_app/.buildozer/android/platform/android-sdk/ndk
+  ANDROID_HOME: /usr/local/lib/android/sdk
+  ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+  ANDROIDSDK: /usr/local/lib/android/sdk
+  ANDROID_NDK_ROOT: /usr/local/lib/android/sdk/ndk/28.2.13676358
+  ANDROIDNDK: /usr/local/lib/android/sdk/ndk/28.2.13676358
   ANDROIDAPI: "35"
   ANDROIDMINAPI: "24"
   NDKAPI: "24"
   GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.workers.max=2"
   MAKEFLAGS: "-j2"
+  SEGMENT_DOWNLOAD_TIMEOUT_MINS: "5"
 
 jobs:
   build-android:
@@ -60,7 +62,7 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Cache Buildozer, Android SDK/NDK and Gradle
+      - name: Cache Buildozer, p4a, Android fallback toolchain and Gradle
         uses: actions/cache@v4
         with:
           path: |
@@ -68,12 +70,12 @@ jobs:
             ~/.buildozer
             ~/.gradle/caches
             ~/.gradle/wrapper
+            ~/.cache/pip
           key: ${{ runner.os }}-buildozer-api35-py311-${{ hashFiles('android_app/buildozer.spec') }}
           restore-keys: |
             ${{ runner.os }}-buildozer-api35-py311-
             ${{ runner.os }}-buildozer-api35-
             ${{ runner.os }}-buildozer-
-          save-always: true
 
       - name: Install Android build dependencies
         working-directory: .
@@ -85,6 +87,23 @@ jobs:
             build-essential git zip unzip autoconf automake libtool \
             libffi-dev libssl-dev zlib1g-dev libltdl-dev \
             libncurses5-dev libncursesw5-dev
+
+      - name: Prepare runner Android SDK compatibility
+        working-directory: .
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d /usr/local/lib/android/sdk
+          test -d /usr/local/lib/android/sdk/ndk/28.2.13676358
+          test -d /usr/local/lib/android/sdk/platforms/android-35
+          test -d /usr/local/lib/android/sdk/build-tools/35.0.0 || test -d /usr/local/lib/android/sdk/build-tools/37.0.0
+          if [ ! -x /usr/local/lib/android/sdk/tools/bin/sdkmanager ]; then
+            sudo mkdir -p /usr/local/lib/android/sdk/tools
+            sudo ln -sfn /usr/local/lib/android/sdk/cmdline-tools/latest/bin /usr/local/lib/android/sdk/tools/bin
+          fi
+          test -x /usr/local/lib/android/sdk/tools/bin/sdkmanager
+          echo "Using preinstalled Android SDK: $ANDROIDSDK"
+          echo "Using preinstalled Android NDK: $ANDROIDNDK"
 
       - name: Install Buildozer
         working-directory: .
@@ -102,12 +121,14 @@ jobs:
           python --version
           java -version
           buildozer --version
+          python -m pip --version
           test -f android_app/buildozer.spec
           printf 'ANDROID_HOME=%s\n' "$ANDROID_HOME"
           printf 'ANDROIDSDK=%s\n' "$ANDROIDSDK"
           printf 'ANDROIDNDK=%s\n' "$ANDROIDNDK"
           printf 'ANDROIDAPI=%s ANDROIDMINAPI=%s NDKAPI=%s\n' "$ANDROIDAPI" "$ANDROIDMINAPI" "$NDKAPI"
-          find android_app/.buildozer -maxdepth 5 -type d \( -name 'android-sdk' -o -name 'android-ndk-*' -o -name 'python-for-android' \) -print 2>/dev/null || true
+          "$ANDROIDSDK/tools/bin/sdkmanager" --version
+          "$ANDROIDNDK/toolchains/llvm/prebuilt/linux-x86_64/bin/clang" --version | head -n 1
 
       - name: Build debug APK
         shell: bash
@@ -115,8 +136,9 @@ jobs:
         run: |
           set -euo pipefail
           echo "Starting verbose Buildozer Android build..."
+          echo "SDK/NDK downloads are disabled; runner toolchain is reused."
           echo "Build logs are intentionally unbuffered."
-          buildozer -v android debug
+          buildozer -v android debug 2>&1 | tee buildozer-build.log
 
       - name: Locate APK
         working-directory: .
@@ -130,6 +152,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: JammerDetector-Android-APK
-          path: android_app/bin/*.apk
+          path: |
+            android_app/bin/*.apk
+            android_app/buildozer-build.log
           if-no-files-found: error
           retention-days: 14
