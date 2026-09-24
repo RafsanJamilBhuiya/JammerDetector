@@ -99,10 +99,12 @@ jobs:
           test -d "$ANDROIDNDK"
           test -d "$ANDROIDSDK/platforms/android-35"
           test -d "$ANDROIDSDK/build-tools/35.0.0" || test -d "$ANDROIDSDK/build-tools/37.0.0"
-          if [ ! -x "$ANDROIDSDK/tools/bin/sdkmanager" ]; then
-            sudo mkdir -p "$ANDROIDSDK/tools"
-            sudo ln -sfn "$ANDROIDSDK/cmdline-tools/latest/bin" "$ANDROIDSDK/tools/bin"
-          fi
+          sudo mkdir -p "$ANDROIDSDK/tools/bin"
+          sudo tee "$ANDROIDSDK/tools/bin/sdkmanager" >/dev/null <<'EOF'
+#!/usr/bin/env bash
+exec /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "$@"
+EOF
+          sudo chmod +x "$ANDROIDSDK/tools/bin/sdkmanager"
           test -x "$ANDROIDSDK/tools/bin/sdkmanager"
           echo "Using Android SDK: $ANDROIDSDK"
           echo "Using Android NDK: $ANDROIDNDK"
