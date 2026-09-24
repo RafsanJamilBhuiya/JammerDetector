@@ -12,8 +12,10 @@ android.api = 35
 android.ndk_api = 24
 android.accept_sdk_license = True
 android.archs = arm64-v8a,armeabi-v7a
+android.debug_artifact = apk
 orientation = portrait
 fullscreen = 0
+p4a.bootstrap = sdl2
 
 [buildozer]
 log_level = 3
