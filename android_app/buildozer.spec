@@ -5,7 +5,7 @@ package.domain = org.jammerdetector
 source.dir = .
 source.include_exts = py,png,jpg,jpeg,kv,atlas,json
 version = 1.0.0
-requirements = python3,kivy,requests,charset-normalizer==2.1.1,pyjnius
+requirements = python3,kivy,pyjnius
 android.permissions = INTERNET,ACCESS_NETWORK_STATE,READ_PHONE_STATE
 android.minapi = 24
 android.api = 35
