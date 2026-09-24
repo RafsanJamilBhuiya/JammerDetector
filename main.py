@@ -22,24 +22,43 @@ def main() -> int:
         )
         settings.validate()
         LOGGER.info("Starting JammerDetector monitoring cycle.")
-        metrics = collect_signal_metrics(settings.signal_source, settings.mock_signal_drop)
-        LOGGER.info(
-            "Telemetry: RSSI=%s dBm degradation=%s%% status=%s anomaly=%s possible_jammer=%s",
-            metrics.rssi_dbm, metrics.degradation_percent, metrics.cellular_status,
-            metrics.anomaly_detected, metrics.possible_jammer,
+
+        metrics = collect_signal_metrics(
+            settings.signal_source, settings.mock_signal_drop
         )
-        entry_id = send_telemetry(
-            settings.thingspeak_channel_id,
-            settings.thingspeak_write_api_key,
-            metrics,
-        )
-        send_status(
-            settings.telegram_bot_token,
-            settings.telegram_chat_id,
-            settings.thingspeak_channel_id,
-            metrics,
-            entry_id,
-        )
+
+        entry_id = "disabled"
+        if settings.thingspeak_enabled:
+            try:
+                entry_id = send_telemetry(
+                    settings.thingspeak_channel_id,
+                    settings.thingspeak_write_api_key,
+                    metrics,
+                )
+            except ThingSpeakError as exc:
+                LOGGER.error("ThingSpeak integration failed: %s", exc)
+                return 1
+        else:
+            LOGGER.warning("ThingSpeak integration disabled: credentials not configured.")
+
+        if settings.telegram_enabled:
+            try:
+                send_status(
+                    settings.telegram_bot_token,
+                    settings.telegram_chat_id,
+                    settings.thingspeak_channel_id,
+                    metrics,
+                    entry_id,
+                )
+            except NotificationError as exc:
+                LOGGER.error("Telegram notification failed: %s", exc)
+                return 2
+        else:
+            LOGGER.warning(
+                "Telegram integration disabled: TELEGRAM_BOT_TOKEN and/or "
+                "TELEGRAM_CHAT_ID not configured."
+            )
+
         LOGGER.info("Monitoring cycle completed successfully.")
         return 0
     except ConfigurationError as exc:
@@ -48,12 +67,6 @@ def main() -> int:
     except TelemetryError as exc:
         LOGGER.exception("Telemetry error: %s", exc)
         return 1
-    except ThingSpeakError as exc:
-        LOGGER.exception("ThingSpeak error: %s", exc)
-        return 1
-    except NotificationError as exc:
-        LOGGER.exception("Telegram notification error: %s", exc)
-        return 2
     except Exception as exc:
         LOGGER.exception("Unexpected fatal error: %s", exc)
         return 1
