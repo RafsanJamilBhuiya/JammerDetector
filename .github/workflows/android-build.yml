@@ -3,10 +3,11 @@ name: JammerDetector Android APK
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - "android_app/**"
+      - "src/**"
+      - "main.py"
       - ".github/workflows/android-build.yml"
 
 permissions:
@@ -35,32 +36,42 @@ env:
   NDKAPI: "24"
   GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.workers.max=2"
   MAKEFLAGS: "-j2"
+  THINGSPEAK_CHANNEL_ID: ${{ secrets.THINGSPEAK_CHANNEL_ID }}
+  THINGSPEAK_WRITE_API_KEY: ${{ secrets.THINGSPEAK_WRITE_API_KEY }}
+  TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
 
 jobs:
   build-android:
     name: Build Android APK
     runs-on: ubuntu-22.04
     timeout-minutes: 180
-
     defaults:
       run:
         working-directory: android_app
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
-
+      - name: Check CI secrets (non-blocking)
+        working-directory: .
+        shell: bash
+        run: |
+          set -u
+          for name in THINGSPEAK_CHANNEL_ID THINGSPEAK_WRITE_API_KEY TELEGRAM_BOT_TOKEN; do
+            if [ -z "${!name:-}" ]; then
+              echo "::warning::$name GitHub repository secret is not configured."
+            else
+              echo "$name is available to the CI process."
+            fi
+          done
       - name: Cache Buildozer and Android build state
         uses: actions/cache@v4
         with:
@@ -75,7 +86,6 @@ jobs:
             ${{ runner.os }}-buildozer-api35-py311-
             ${{ runner.os }}-buildozer-api35-
             ${{ runner.os }}-buildozer-
-
       - name: Install Android build dependencies
         working-directory: .
         shell: bash
@@ -83,7 +93,6 @@ jobs:
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y build-essential git zip unzip autoconf automake libtool pkg-config libffi-dev libssl-dev zlib1g-dev libltdl-dev libncurses5-dev libncursesw5-dev
-
       - name: Prepare Android SDK compatibility
         working-directory: .
         shell: bash
@@ -97,7 +106,6 @@ jobs:
           printf '%s\n' '#!/usr/bin/env bash' 'exec /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "$@"' | sudo tee "$ANDROIDSDK/tools/bin/sdkmanager" >/dev/null
           sudo chmod +x "$ANDROIDSDK/tools/bin/sdkmanager"
           test -x "$ANDROIDSDK/tools/bin/sdkmanager"
-
       - name: Install Buildozer
         working-directory: .
         shell: bash
@@ -105,7 +113,6 @@ jobs:
           set -euo pipefail
           python -m pip install --upgrade pip setuptools wheel
           python -m pip install --upgrade buildozer cython
-
       - name: Verify toolchain
         working-directory: .
         shell: bash
@@ -117,15 +124,12 @@ jobs:
           test -f android_app/buildozer.spec
           "$ANDROIDSDK/tools/bin/sdkmanager" --version
           "$ANDROIDNDK/toolchains/llvm/prebuilt/linux-x86_64/bin/clang" --version | head -n 1
-
       - name: Build debug APK
         shell: bash
         timeout-minutes: 165
         run: |
           set -euo pipefail
-          echo "Starting Buildozer with maximum verbosity (log_level=3)..."
           buildozer -v android debug 2>&1 | tee buildozer-build.log
-
       - name: Locate APK
         working-directory: .
         shell: bash
@@ -133,7 +137,6 @@ jobs:
           set -euo pipefail
           find android_app/bin -type f -name '*.apk' -print
           test -n "$(find android_app/bin -type f -name '*.apk' -print -quit)"
-
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
