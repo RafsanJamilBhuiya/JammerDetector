@@ -16,11 +16,25 @@ concurrency:
   group: jammerdetector-android-build
   cancel-in-progress: true
 
+env:
+  PYTHONUNBUFFERED: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PIP_NO_INPUT: "1"
+  LC_ALL: C.UTF-8
+  LANG: C.UTF-8
+  ANDROIDSDK: ${{ github.workspace }}/.buildozer/android/platform/android-sdk
+  ANDROID_HOME: ${{ github.workspace }}/.buildozer/android/platform/android-sdk
+  ANDROIDAPI: "35"
+  ANDROIDMINAPI: "23"
+  NDKAPI: "23"
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.workers.max=2"
+  MAKEFLAGS: "-j2"
+
 jobs:
   build-android:
     name: Build Android APK
     runs-on: ubuntu-22.04
-    timeout-minutes: 60
+    timeout-minutes: 120
 
     defaults:
       run:
@@ -41,6 +55,18 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Cache Buildozer and Android toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            .buildozer
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-buildozer-android-api35-${{ hashFiles('android_app/buildozer.spec') }}
+          restore-keys: |
+            ${{ runner.os }}-buildozer-android-api35-
+            ${{ runner.os }}-buildozer-
+
       - name: Install Android build dependencies
         working-directory: .
         shell: bash
@@ -57,7 +83,7 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           python -m pip install --upgrade buildozer cython
 
-      - name: Verify toolchain
+      - name: Verify toolchain and cache paths
         working-directory: .
         shell: bash
         run: |
@@ -66,11 +92,22 @@ jobs:
           java -version
           buildozer --version
           test -f android_app/buildozer.spec
+          printf 'ANDROIDSDK=%s\n' "$ANDROIDSDK"
+          printf 'ANDROIDAPI=%s ANDROIDMINAPI=%s NDKAPI=%s\n' "$ANDROIDAPI" "$ANDROIDMINAPI" "$NDKAPI"
+          if [ -d "$ANDROIDSDK" ]; then
+            echo "Cached Android SDK directory is present."
+          else
+            echo "Android SDK directory will be provisioned by Buildozer."
+          fi
+          find .buildozer/android/platform -maxdepth 1 -type d -name 'android-ndk-*' -print 2>/dev/null || true
 
       - name: Build debug APK
         shell: bash
+        timeout-minutes: 100
         run: |
           set -euo pipefail
+          echo "Starting verbose Buildozer Android build..."
+          echo "Build logs are intentionally unbuffered."
           buildozer -v android debug
 
       - name: Locate APK
