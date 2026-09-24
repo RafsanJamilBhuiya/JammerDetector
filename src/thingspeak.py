@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-
-import requests
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 from .config import HTTP_TIMEOUT_SECONDS, THINGSPEAK_UPDATE_URL
 from .telemetry import SignalMetrics
@@ -31,16 +32,17 @@ def send_telemetry(channel_id: str, write_api_key: str, metrics: SignalMetrics) 
     }
 
     try:
-        response = requests.post(
+        request = Request(
             THINGSPEAK_UPDATE_URL,
-            data=payload,
-            timeout=HTTP_TIMEOUT_SECONDS,
+            data=urlencode(payload).encode("utf-8"),
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            method="POST",
         )
-        response.raise_for_status()
-    except requests.RequestException as exc:
+        with urlopen(request, timeout=HTTP_TIMEOUT_SECONDS) as response:
+            entry_id = response.read().decode("utf-8").strip()
+    except (HTTPError, URLError, TimeoutError) as exc:
         raise ThingSpeakError("ThingSpeak HTTP request failed.") from exc
 
-    entry_id = response.text.strip()
     if not entry_id or entry_id == "0":
         raise ThingSpeakError(
             f"ThingSpeak rejected the update for channel {channel_id}."
