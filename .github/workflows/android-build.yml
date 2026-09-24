@@ -25,8 +25,8 @@ env:
   ANDROIDSDK: ${{ github.workspace }}/.buildozer/android/platform/android-sdk
   ANDROID_HOME: ${{ github.workspace }}/.buildozer/android/platform/android-sdk
   ANDROIDAPI: "35"
-  ANDROIDMINAPI: "23"
-  NDKAPI: "23"
+  ANDROIDMINAPI: "24"
+  NDKAPI: "24"
   GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.workers.max=2"
   MAKEFLAGS: "-j2"
 
@@ -34,7 +34,7 @@ jobs:
   build-android:
     name: Build Android APK
     runs-on: ubuntu-22.04
-    timeout-minutes: 120
+    timeout-minutes: 150
 
     defaults:
       run:
@@ -66,6 +66,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildozer-android-api35-
             ${{ runner.os }}-buildozer-
+          save-always: true
 
       - name: Install Android build dependencies
         working-directory: .
@@ -94,16 +95,11 @@ jobs:
           test -f android_app/buildozer.spec
           printf 'ANDROIDSDK=%s\n' "$ANDROIDSDK"
           printf 'ANDROIDAPI=%s ANDROIDMINAPI=%s NDKAPI=%s\n' "$ANDROIDAPI" "$ANDROIDMINAPI" "$NDKAPI"
-          if [ -d "$HOME/.buildozer/android/platform/android-sdk" ]; then
-            echo "Cached Android SDK directory is present."
-          else
-            echo "Android SDK directory will be provisioned by Buildozer."
-          fi
           find "$HOME/.buildozer/android/platform" -maxdepth 1 -type d -name 'android-ndk-*' -print 2>/dev/null || true
 
       - name: Build debug APK
         shell: bash
-        timeout-minutes: 100
+        timeout-minutes: 130
         run: |
           set -euo pipefail
           echo "Starting verbose Buildozer Android build..."
