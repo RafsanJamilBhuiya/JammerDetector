@@ -59,7 +59,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            .buildozer
+            ~/.buildozer
             ~/.gradle/caches
             ~/.gradle/wrapper
           key: ${{ runner.os }}-buildozer-android-api35-${{ hashFiles('android_app/buildozer.spec') }}
@@ -94,12 +94,12 @@ jobs:
           test -f android_app/buildozer.spec
           printf 'ANDROIDSDK=%s\n' "$ANDROIDSDK"
           printf 'ANDROIDAPI=%s ANDROIDMINAPI=%s NDKAPI=%s\n' "$ANDROIDAPI" "$ANDROIDMINAPI" "$NDKAPI"
-          if [ -d "$ANDROIDSDK" ]; then
+          if [ -d "$HOME/.buildozer/android/platform/android-sdk" ]; then
             echo "Cached Android SDK directory is present."
           else
             echo "Android SDK directory will be provisioned by Buildozer."
           fi
-          find .buildozer/android/platform -maxdepth 1 -type d -name 'android-ndk-*' -print 2>/dev/null || true
+          find "$HOME/.buildozer/android/platform" -maxdepth 1 -type d -name 'android-ndk-*' -print 2>/dev/null || true
 
       - name: Build debug APK
         shell: bash
