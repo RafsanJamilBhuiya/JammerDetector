@@ -14,16 +14,21 @@ permissions:
 
 concurrency:
   group: jammerdetector-android-build
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   PYTHONUNBUFFERED: "1"
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
   PIP_NO_INPUT: "1"
+  P4A_COLOR: "1"
+  P4A_NO_INTERACTIVE: "1"
   LC_ALL: C.UTF-8
   LANG: C.UTF-8
-  ANDROIDSDK: ${{ github.workspace }}/.buildozer/android/platform/android-sdk
-  ANDROID_HOME: ${{ github.workspace }}/.buildozer/android/platform/android-sdk
+  ANDROID_HOME: ${{ github.workspace }}/android_app/.buildozer/android/platform/android-sdk
+  ANDROID_SDK_ROOT: ${{ github.workspace }}/android_app/.buildozer/android/platform/android-sdk
+  ANDROIDSDK: ${{ github.workspace }}/android_app/.buildozer/android/platform/android-sdk
+  ANDROID_NDK_ROOT: ${{ github.workspace }}/android_app/.buildozer/android/platform/android-sdk/ndk
+  ANDROIDNDK: ${{ github.workspace }}/android_app/.buildozer/android/platform/android-sdk/ndk
   ANDROIDAPI: "35"
   ANDROIDMINAPI: "24"
   NDKAPI: "24"
@@ -34,7 +39,7 @@ jobs:
   build-android:
     name: Build Android APK
     runs-on: ubuntu-22.04
-    timeout-minutes: 150
+    timeout-minutes: 180
 
     defaults:
       run:
@@ -55,16 +60,18 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Cache Buildozer and Android toolchain
+      - name: Cache Buildozer, Android SDK/NDK and Gradle
         uses: actions/cache@v4
         with:
           path: |
+            android_app/.buildozer
             ~/.buildozer
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: ${{ runner.os }}-buildozer-android-api35-${{ hashFiles('android_app/buildozer.spec') }}
+          key: ${{ runner.os }}-buildozer-api35-py311-${{ hashFiles('android_app/buildozer.spec') }}
           restore-keys: |
-            ${{ runner.os }}-buildozer-android-api35-
+            ${{ runner.os }}-buildozer-api35-py311-
+            ${{ runner.os }}-buildozer-api35-
             ${{ runner.os }}-buildozer-
           save-always: true
 
@@ -74,7 +81,10 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y             build-essential git zip unzip autoconf automake libtool pkg-config             libffi-dev libssl-dev zlib1g-dev cmake libltdl-dev             libncurses5-dev libncursesw5-dev
+          sudo apt-get install -y \
+            build-essential git zip unzip autoconf automake libtool pkg-config \
+            libffi-dev libssl-dev zlib1g-dev cmake libltdl-dev \
+            libncurses5-dev libncursesw5-dev
 
       - name: Install Buildozer
         working-directory: .
@@ -93,13 +103,15 @@ jobs:
           java -version
           buildozer --version
           test -f android_app/buildozer.spec
+          printf 'ANDROID_HOME=%s\n' "$ANDROID_HOME"
           printf 'ANDROIDSDK=%s\n' "$ANDROIDSDK"
+          printf 'ANDROIDNDK=%s\n' "$ANDROIDNDK"
           printf 'ANDROIDAPI=%s ANDROIDMINAPI=%s NDKAPI=%s\n' "$ANDROIDAPI" "$ANDROIDMINAPI" "$NDKAPI"
-          find "$HOME/.buildozer/android/platform" -maxdepth 1 -type d -name 'android-ndk-*' -print 2>/dev/null || true
+          find android_app/.buildozer -maxdepth 5 -type d \( -name 'android-sdk' -o -name 'android-ndk-*' -o -name 'python-for-android' \) -print 2>/dev/null || true
 
       - name: Build debug APK
         shell: bash
-        timeout-minutes: 130
+        timeout-minutes: 165
         run: |
           set -euo pipefail
           echo "Starting verbose Buildozer Android build..."
