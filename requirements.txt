@@ -1,1 +1,1 @@
-requests>=2.31,<3
+# Android runtime dependencies are declared in android_app/buildozer.spec.
