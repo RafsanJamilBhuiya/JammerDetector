@@ -9,6 +9,7 @@ requirements = python3,kivy,requests,pyjnius
 android.permissions = INTERNET,ACCESS_NETWORK_STATE,READ_PHONE_STATE
 android.minapi = 23
 android.api = 35
+android.accept_sdk_license = True
 android.archs = arm64-v8a,armeabi-v7a
 orientation = portrait
 fullscreen = 0
