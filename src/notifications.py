@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import json
 import logging
-
-import requests
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 from .config import (
     GITHUB_ACTIONS_URL,
@@ -88,14 +89,15 @@ def send_status(
     }
 
     try:
-        response = requests.post(
+        request = Request(
             TELEGRAM_SEND_URL.format(token=token),
-            data=payload,
-            timeout=HTTP_TIMEOUT_SECONDS,
+            data=urlencode(payload).encode("utf-8"),
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            method="POST",
         )
-        response.raise_for_status()
-        result = response.json()
-    except (requests.RequestException, ValueError) as exc:
+        with urlopen(request, timeout=HTTP_TIMEOUT_SECONDS) as response:
+            result = json.loads(response.read().decode("utf-8"))
+    except (HTTPError, URLError, TimeoutError, ValueError) as exc:
         raise NotificationError("Telegram HTTP/JSON request failed.") from exc
 
     if not result.get("ok"):
