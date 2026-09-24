@@ -13,8 +13,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: jammerdetector-android-build-v3
-  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   PYTHONUNBUFFERED: "1"
@@ -62,7 +62,7 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Cache Buildozer, p4a, Android fallback toolchain and Gradle
+      - name: Cache Buildozer, Android SDK/NDK and Gradle
         uses: actions/cache@v4
         with:
           path: |
@@ -71,11 +71,13 @@ jobs:
             ~/.gradle/caches
             ~/.gradle/wrapper
             ~/.cache/pip
+            /usr/local/lib/android/sdk
           key: ${{ runner.os }}-buildozer-api35-py311-${{ hashFiles('android_app/buildozer.spec') }}
           restore-keys: |
             ${{ runner.os }}-buildozer-api35-py311-
             ${{ runner.os }}-buildozer-api35-
             ${{ runner.os }}-buildozer-
+          save-always: true
 
       - name: Install Android build dependencies
         working-directory: .
@@ -93,17 +95,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -d /usr/local/lib/android/sdk
-          test -d /usr/local/lib/android/sdk/ndk/28.2.13676358
-          test -d /usr/local/lib/android/sdk/platforms/android-35
-          test -d /usr/local/lib/android/sdk/build-tools/35.0.0 || test -d /usr/local/lib/android/sdk/build-tools/37.0.0
-          if [ ! -x /usr/local/lib/android/sdk/tools/bin/sdkmanager ]; then
-            sudo mkdir -p /usr/local/lib/android/sdk/tools
-            sudo ln -sfn /usr/local/lib/android/sdk/cmdline-tools/latest/bin /usr/local/lib/android/sdk/tools/bin
+          test -d "$ANDROIDSDK"
+          test -d "$ANDROIDNDK"
+          test -d "$ANDROIDSDK/platforms/android-35"
+          test -d "$ANDROIDSDK/build-tools/35.0.0" || test -d "$ANDROIDSDK/build-tools/37.0.0"
+          if [ ! -x "$ANDROIDSDK/tools/bin/sdkmanager" ]; then
+            sudo mkdir -p "$ANDROIDSDK/tools"
+            sudo ln -sfn "$ANDROIDSDK/cmdline-tools/latest/bin" "$ANDROIDSDK/tools/bin"
           fi
-          test -x /usr/local/lib/android/sdk/tools/bin/sdkmanager
-          echo "Using preinstalled Android SDK: $ANDROIDSDK"
-          echo "Using preinstalled Android NDK: $ANDROIDNDK"
+          test -x "$ANDROIDSDK/tools/bin/sdkmanager"
+          echo "Using Android SDK: $ANDROIDSDK"
+          echo "Using Android NDK: $ANDROIDNDK"
 
       - name: Install Buildozer
         working-directory: .
@@ -136,7 +138,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "Starting verbose Buildozer Android build..."
-          echo "SDK/NDK downloads are disabled; runner toolchain is reused."
+          echo "SDK/NDK downloads are disabled; cached/preinstalled toolchain is reused."
           echo "Build logs are intentionally unbuffered."
           buildozer -v android debug 2>&1 | tee buildozer-build.log
 
