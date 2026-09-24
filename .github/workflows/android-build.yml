@@ -130,6 +130,18 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           python -m pip install --upgrade buildozer cython
 
+      - name: Normalize Android NDK environment
+        working-directory: .
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in ANDROID_NDK ANDROID_NDK_HOME ANDROID_NDK_ROOT ANDROIDNDK; do
+            echo "$name=$ANDROIDNDK" >> "$GITHUB_ENV"
+          done
+          test "$ANDROID_NDK" = "$ANDROIDNDK"
+          test "$ANDROID_NDK_HOME" = "$ANDROIDNDK"
+          test "$ANDROID_NDK_ROOT" = "$ANDROIDNDK"
+
       - name: Verify toolchain
         working-directory: .
         shell: bash
