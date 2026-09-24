@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: jammerdetector-android-build
+  group: jammerdetector-android-build-v2
   cancel-in-progress: false
 
 env:
@@ -47,15 +47,15 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
@@ -82,8 +82,8 @@ jobs:
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y \
-            build-essential git zip unzip autoconf automake libtool pkg-config \
-            libffi-dev libssl-dev zlib1g-dev cmake libltdl-dev \
+            build-essential git zip unzip autoconf automake libtool \
+            libffi-dev libssl-dev zlib1g-dev libltdl-dev \
             libncurses5-dev libncursesw5-dev
 
       - name: Install Buildozer
