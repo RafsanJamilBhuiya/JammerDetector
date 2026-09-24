@@ -20,7 +20,7 @@ jobs:
   build-android:
     name: Build Android APK
     runs-on: ubuntu-22.04
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     defaults:
       run:
@@ -47,18 +47,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            git \
-            zip \
-            unzip \
-            autoconf \
-            automake \
-            libtool \
-            pkg-config \
-            libffi-dev \
-            libssl-dev \
-            zlib1g-dev
+          sudo apt-get install -y             build-essential git zip unzip autoconf automake libtool pkg-config             libffi-dev libssl-dev zlib1g-dev cmake libltdl-dev             libncurses5-dev libncursesw5-dev
 
       - name: Install Buildozer
         working-directory: .
@@ -66,13 +55,23 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip setuptools wheel
-          python -m pip install buildozer cython
+          python -m pip install --upgrade buildozer cython
+
+      - name: Verify toolchain
+        working-directory: .
+        shell: bash
+        run: |
+          set -euo pipefail
+          python --version
+          java -version
+          buildozer --version
+          test -f android_app/buildozer.spec
 
       - name: Build debug APK
         shell: bash
         run: |
           set -euo pipefail
-          buildozer android debug
+          buildozer -v android debug
 
       - name: Locate APK
         working-directory: .
